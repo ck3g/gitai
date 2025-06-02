@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use std::fs;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "gitai")]
@@ -37,15 +38,22 @@ fn handle_init() {
         .expect("Failed to read input");
 
     let api_key = input.trim();
-    println!("Your API key: {}", api_key);
 
+    match store_api_key(api_key) {
+        Ok(path) => println!("API key saved to {:?}", path),
+        Err(e) => eprintln!("Failed to save API key: {}", e),
+    }
+}
+
+fn store_api_key(api_key: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let config_dir = dirs::home_dir()
-        .expect("Could not find home directory")
+        .ok_or("Could not find home directory")?
         .join(".gitai");
-    fs::create_dir_all(&config_dir).expect("Failed to create config directory");
+
+    fs::create_dir_all(&config_dir)?;
 
     let config_file = config_dir.join("config");
-    fs::write(&config_file, api_key).expect("Failed to write config file");
+    fs::write(&config_file, api_key)?;
 
-    println!("API key saved to {:?}", config_file);
+    Ok(config_file)
 }
