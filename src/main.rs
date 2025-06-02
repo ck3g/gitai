@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use std::io::{self, Write};
 
 #[derive(Parser)]
 #[command(name = "gitai")]
@@ -20,7 +21,18 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init => println!("init command coming soon"),
+        Commands::Init => handle_init(),
         Commands::Commit => println!("commit command coming soon"),
     }
+}
+
+fn handle_init() {
+    print!("Enter your Anthropic API key: ");
+    io::stdout().flush().unwrap();
+
+    let mut input = String::new();
+    io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read input");
+    println!("Your API key: {}", input.trim())
 }
