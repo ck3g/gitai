@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use std::fs;
 use std::io::{self, Write};
 
 #[derive(Parser)]
@@ -34,5 +35,17 @@ fn handle_init() {
     io::stdin()
         .read_line(&mut input)
         .expect("Failed to read input");
-    println!("Your API key: {}", input.trim())
+
+    let api_key = input.trim();
+    println!("Your API key: {}", api_key);
+
+    let config_dir = dirs::home_dir()
+        .expect("Could not find home directory")
+        .join(".gitai");
+    fs::create_dir_all(&config_dir).expect("Failed to create config directory");
+
+    let config_file = config_dir.join("config");
+    fs::write(&config_file, api_key).expect("Failed to write config file");
+
+    println!("API key saved to {:?}", config_file);
 }
