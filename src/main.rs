@@ -52,8 +52,14 @@ fn handle_init() {
 fn handle_commit() {
     match is_git_repository() {
         Ok(true) => println!("Success! That's a git repo"),
-        Ok(false) => eprintln!("Error: Not a git repository"),
-        Err(e) => eprintln!("Not a git repository: {}", e),
+        Ok(false) => {
+            eprintln!("Error: Not a git repository");
+            std::process::exit(1);
+        }
+        Err(e) => {
+            eprintln!("Not a git repository: {}", e);
+            std::process::exit(1);
+        }
     }
 }
 
