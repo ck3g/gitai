@@ -61,6 +61,18 @@ fn handle_commit() {
             std::process::exit(1);
         }
     }
+
+    run_git_commit();
+}
+
+fn run_git_commit() {
+    match Command::new("git").arg("commit").status() {
+        Ok(status) => std::process::exit(status.code().unwrap_or(1)),
+        Err(e) => {
+            eprintln!("Failed to run git commit: {}", e);
+            std::process::exit(1);
+        }
+    }
 }
 
 fn store_api_key(api_key: &str, config_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
