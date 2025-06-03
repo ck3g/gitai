@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use tempfile::NamedTempFile;
 
 #[derive(Parser)]
 #[command(name = "gitai")]
@@ -62,11 +63,30 @@ fn handle_commit() {
         }
     }
 
-    run_git_commit();
+    let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+
+    writeln!(temp_file, "Dummy commit message").expect("Failed to write temp file");
+    writeln!(temp_file).expect("Failed to write to temp file");
+    writeln!(temp_file, "This is a dummy commit message.").expect("Failed to write to temp file");
+    writeln!(temp_file).expect("Failed to write to temp file");
+    writeln!(temp_file, "# Edit this message as needed before committing")
+        .expect("Failed to write to temp file");
+
+    temp_file.flush().expect("Failed to flush temp file");
+
+    let temp_path = temp_file.path().to_owned();
+
+    run_git_commit(&temp_path);
 }
 
-fn run_git_commit() {
-    match Command::new("git").arg("commit").status() {
+fn run_git_commit(temp_path: &Path) {
+    let status = Command::new("git")
+        .arg("commit")
+        .arg("-t")
+        .arg(temp_path)
+        .status();
+
+    match status {
         Ok(status) => std::process::exit(status.code().unwrap_or(1)),
         Err(e) => {
             eprintln!("Failed to run git commit: {}", e);
