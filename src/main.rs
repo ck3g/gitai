@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 #[derive(Parser)]
 #[command(name = "gitai")]
@@ -24,7 +25,7 @@ fn main() {
 
     match cli.command {
         Commands::Init => handle_init(),
-        Commands::Commit => println!("commit command coming soon"),
+        Commands::Commit => handle_commit(),
     }
 }
 
@@ -48,6 +49,14 @@ fn handle_init() {
     }
 }
 
+fn handle_commit() {
+    match is_git_repository() {
+        Ok(true) => println!("Success! That's a git repo"),
+        Ok(false) => eprintln!("Error: Not a git repository"),
+        Err(e) => eprintln!("Not a git repository: {}", e),
+    }
+}
+
 fn store_api_key(api_key: &str, config_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     fs::create_dir_all(config_dir)?;
 
@@ -57,10 +66,25 @@ fn store_api_key(api_key: &str, config_dir: &Path) -> Result<PathBuf, Box<dyn st
     Ok(config_file)
 }
 
+fn is_git_repository_at(path: &Path) -> Result<bool, Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .current_dir(path)
+        .arg("rev-parse")
+        .arg("--git-dir")
+        .output()?;
+
+    Ok(output.status.success())
+}
+
+fn is_git_repository() -> Result<bool, Box<dyn std::error::Error>> {
+    is_git_repository_at(Path::new("."))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
+    use std::path::Path;
     use tempfile::TempDir;
 
     #[test]
@@ -75,6 +99,22 @@ mod tests {
 
         let content = fs::read_to_string(&result_path)?;
         assert_eq!(content, api_key);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_is_git_repository_in_actual_git_repo() -> Result<(), Box<dyn std::error::Error>> {
+        // Use current project directory, which is a git repo
+        assert!(is_git_repository_at(Path::new("."))?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_is_git_repository_not_in_git_repo() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = TempDir::new()?;
+        assert!(!is_git_repository_at(temp_dir.path())?);
 
         Ok(())
     }
