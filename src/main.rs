@@ -40,9 +40,7 @@ fn handle_init() {
         .expect("Failed to read input");
 
     let api_key = input.trim();
-    let config_dir = dirs::home_dir()
-        .expect("Could not find home directory")
-        .join(".gitai");
+    let config_dir = get_config_dir();
 
     match store_api_key(api_key, &config_dir) {
         Ok(path) => println!("API key saved to {:?}", path),
@@ -52,7 +50,7 @@ fn handle_init() {
 
 fn handle_commit() {
     match is_git_repository() {
-        Ok(true) => println!("Success! That's a git repo"),
+        Ok(true) => {}
         Ok(false) => {
             eprintln!("Error: Not a git repository");
             std::process::exit(1);
@@ -70,6 +68,17 @@ fn handle_commit() {
         return;
     }
 
+    let config_dir = get_config_dir();
+    let api_key = match read_api_key(&config_dir) {
+        Ok(key) => key,
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    println!("API Key: {}", api_key);
+
     let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
 
     writeln!(temp_file, "Dummy commit message").expect("Failed to write temp file");
@@ -84,6 +93,12 @@ fn handle_commit() {
     let template_path = temp_file.path().to_owned();
 
     run_git_commit(Some(&template_path));
+}
+
+fn get_config_dir() -> PathBuf {
+    dirs::home_dir()
+        .expect("Could not find home directory")
+        .join(".gitai")
 }
 
 fn get_staged_changes() -> Result<String, Box<dyn std::error::Error>> {
@@ -138,6 +153,23 @@ fn is_git_repository() -> Result<bool, Box<dyn std::error::Error>> {
     is_git_repository_at(Path::new("."))
 }
 
+fn read_api_key(config_dir: &Path) -> Result<String, Box<dyn std::error::Error>> {
+    let config_file = config_dir.join("config");
+    let file_exists = fs::exists(&config_file)?;
+    if !file_exists {
+        return Err("Config file not found. Please run 'gitai init' first.".into());
+    }
+
+    let file_content = fs::read_to_string(config_file)?;
+    let api_key = file_content.trim().to_string();
+
+    if api_key.is_empty() {
+        return Err("API key is empty. Please run 'gitai init' first.".into());
+    }
+
+    Ok(api_key)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,6 +205,81 @@ mod tests {
     fn test_is_git_repository_not_in_git_repo() -> Result<(), Box<dyn std::error::Error>> {
         let temp_dir = TempDir::new()?;
         assert!(!is_git_repository_at(temp_dir.path())?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_api_key_success() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = TempDir::new()?;
+        let config_dir = temp_dir.path();
+
+        let config_file = config_dir.join("config");
+        fs::write(&config_file, "test-api-key-123")?;
+
+        let api_key = read_api_key(config_dir)?;
+        assert_eq!(api_key, "test-api-key-123");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_api_key_with_whitespace() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = TempDir::new()?;
+        let config_dir = temp_dir.path();
+
+        let config_file = config_dir.join("config");
+        fs::write(&config_file, "  test-api-key-123\n\n")?;
+
+        let api_key = read_api_key(config_dir)?;
+        assert_eq!(api_key, "test-api-key-123");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_api_key_file_not_found() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = TempDir::new()?;
+        let config_dir = temp_dir.path();
+
+        let result = read_api_key(config_dir);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Config file not found")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_api_key_empty_file() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = TempDir::new()?;
+        let config_dir = temp_dir.path();
+
+        let config_file = config_dir.join("config");
+        fs::write(&config_file, "")?;
+
+        let result = read_api_key(config_dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("API key is empty"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_api_key_whitespace_only() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = TempDir::new()?;
+        let config_dir = temp_dir.path();
+
+        let config_file = config_dir.join("config");
+        fs::write(&config_file, "  \n\n")?;
+
+        let result = read_api_key(config_dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("API key is empty"));
 
         Ok(())
     }
