@@ -63,6 +63,13 @@ fn handle_commit() {
         }
     }
 
+    let diff = get_staged_changes().expect("Failed to run git diff --cached");
+
+    if diff.is_empty() {
+        run_git_commit(None);
+        return;
+    }
+
     let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
 
     writeln!(temp_file, "Dummy commit message").expect("Failed to write temp file");
@@ -74,19 +81,32 @@ fn handle_commit() {
 
     temp_file.flush().expect("Failed to flush temp file");
 
-    let temp_path = temp_file.path().to_owned();
+    let template_path = temp_file.path().to_owned();
 
-    run_git_commit(&temp_path);
+    run_git_commit(Some(&template_path));
 }
 
-fn run_git_commit(temp_path: &Path) {
-    let status = Command::new("git")
-        .arg("commit")
-        .arg("-t")
-        .arg(temp_path)
-        .status();
+fn get_staged_changes() -> Result<String, Box<dyn std::error::Error>> {
+    let output = Command::new("git").arg("diff").arg("--cached").output()?;
 
-    match status {
+    if !output.status.success() {
+        return Err("Failed to get git diff".into());
+    }
+
+    let diff = String::from_utf8(output.stdout)?;
+
+    Ok(diff)
+}
+
+fn run_git_commit(template_path: Option<&Path>) {
+    let mut cmd = Command::new("git");
+    cmd.arg("commit");
+
+    if let Some(path) = template_path {
+        cmd.arg("-t").arg(path);
+    }
+
+    match cmd.status() {
         Ok(status) => std::process::exit(status.code().unwrap_or(1)),
         Err(e) => {
             eprintln!("Failed to run git commit: {}", e);
