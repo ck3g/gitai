@@ -1,9 +1,12 @@
 use clap::{Parser, Subcommand};
+use prompt::build_prompt;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::NamedTempFile;
+
+mod prompt;
 
 #[derive(Parser)]
 #[command(name = "gitai")]
@@ -78,6 +81,9 @@ fn handle_commit() {
     };
 
     println!("API Key: {}", api_key);
+
+    let prompt = build_prompt(&diff);
+    println!("Prompt: {}", prompt);
 
     let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
 
