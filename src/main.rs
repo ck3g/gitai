@@ -105,7 +105,7 @@ fn handle_commit() {
 
     temp_file.flush().expect("Failed to flush temp file");
 
-    let template_path = temp_file.path().to_owned();
+    let template_path = temp_file.into_temp_path();
 
     run_git_commit(Some(&template_path));
 }
