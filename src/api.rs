@@ -59,7 +59,7 @@ pub async fn generate_commit_message(
     let response = client
         .post(ANTHROPIC_API_URL)
         .header("x-api-key", api_key)
-        .header("anthropic-version", "2024-06-20")
+        .header("anthropic-version", "2023-06-01")
         .header("content-type", "application/json")
         .json(&anthropic_request)
         .send()

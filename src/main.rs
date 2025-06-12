@@ -5,6 +5,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::NamedTempFile;
+use tokio::runtime::Runtime;
 
 mod api;
 mod prompt;
@@ -81,16 +82,23 @@ fn handle_commit() {
         }
     };
 
-    println!("API Key: {}", api_key);
-
     let prompt = build_prompt(&diff);
-    println!("Prompt: {}", prompt);
+    println!("Generating commit message...");
+
+    let rt = Runtime::new().expect("Failed to create Tokio runtime");
+    let commit_message = rt.block_on(async {
+        match api::generate_commit_message(&api_key, &prompt).await {
+            Ok(msg) => msg,
+            Err(e) => {
+                eprintln!("Error generating commit message: {}", e);
+                std::process::exit(1);
+            }
+        }
+    });
 
     let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
 
-    writeln!(temp_file, "Dummy commit message").expect("Failed to write temp file");
-    writeln!(temp_file).expect("Failed to write to temp file");
-    writeln!(temp_file, "This is a dummy commit message.").expect("Failed to write to temp file");
+    writeln!(temp_file, "{}", commit_message).expect("Failed to write temp file");
     writeln!(temp_file).expect("Failed to write to temp file");
     writeln!(temp_file, "# Edit this message as needed before committing")
         .expect("Failed to write to temp file");
