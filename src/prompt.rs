@@ -43,6 +43,8 @@ Here are the staged changes to analyze:
 Generate a clear, concise commit message for these changes.
 Focus on the "why" and "what" of the changes, not just the "how".
 If the changes are simple and self-explanatory, a single line summary is sufficient.
+
+Do not include any other text in your response.
     "#,
         COMMIT_MESSAGE_RULES, diff
     )
