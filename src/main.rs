@@ -96,18 +96,7 @@ fn handle_commit() {
         }
     });
 
-    let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
-
-    writeln!(temp_file, "{}", commit_message).expect("Failed to write temp file");
-    writeln!(temp_file).expect("Failed to write to temp file");
-    writeln!(temp_file, "# Edit this message as needed before committing")
-        .expect("Failed to write to temp file");
-
-    temp_file.flush().expect("Failed to flush temp file");
-
-    let template_path = temp_file.into_temp_path();
-
-    run_git_commit(Some(&template_path));
+    run_git_commit(Some(&commit_message));
 }
 
 fn get_config_dir() -> PathBuf {
@@ -128,12 +117,12 @@ fn get_staged_changes() -> Result<String, Box<dyn std::error::Error>> {
     Ok(diff)
 }
 
-fn run_git_commit(template_path: Option<&Path>) {
+fn run_git_commit(message: Option<&String>) {
     let mut cmd = Command::new("git");
     cmd.arg("commit");
 
-    if let Some(path) = template_path {
-        cmd.arg("-t").arg(path);
+    if let Some(message) = message {
+        cmd.arg("-m").arg(message).arg("--edit");
     }
 
     match cmd.status() {
