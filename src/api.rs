@@ -31,15 +31,11 @@ struct AnthropicContent {
 #[derive(Deserialize)]
 struct AnthropicError {
     message: String,
-    #[serde(rename = "type")]
-    error_type: String,
 }
 
 #[derive(Deserialize)]
 struct AnthropicErrorRequest {
     error: AnthropicError,
-    #[serde(rename = "type")]
-    error_type: String,
 }
 
 pub async fn generate_commit_message(
