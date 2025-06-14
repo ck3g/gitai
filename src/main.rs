@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tokio::runtime::Runtime;
 
+pub mod anthropic;
 mod api;
 mod prompt;
 
