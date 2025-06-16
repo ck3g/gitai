@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub struct Client {
+    http_client: reqwest::Client,
     api_key: String,
     api_base_url: String,
 }
@@ -66,6 +67,7 @@ impl MessageParam {
 impl Client {
     pub fn new(api_key: String) -> Self {
         Self {
+            http_client: reqwest::Client::new(),
             api_key,
             api_base_url: "https://api.anthropic.com".to_string(),
         }
@@ -76,8 +78,8 @@ impl Client {
         message_new_params: MessageNewParams,
     ) -> Result<Message, Box<dyn std::error::Error>> {
         let api_url = format!("{}/v1/messages", self.api_base_url);
-        let client = reqwest::Client::new();
-        let response = client
+        let response = self
+            .http_client
             .post(api_url)
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
