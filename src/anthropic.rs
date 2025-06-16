@@ -92,6 +92,12 @@ impl MessageParam {
     }
 }
 
+impl Client<ReqwestHttpClient> {
+    pub fn new_default(api_key: String) -> Self {
+        Self::new(ReqwestHttpClient::new(), api_key)
+    }
+}
+
 impl<H: HttpClient> Client<H> {
     pub fn new(http_client: H, api_key: String) -> Self {
         Self {
