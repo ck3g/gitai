@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+const ANTHROPIC_VERSION: &str = "2023-06-01";
+const BASE_URL: &str = "https://api.anthropic.com";
+
 #[async_trait::async_trait]
 pub trait HttpClient {
     async fn post_json<T: Serialize + Send + Sync>(
@@ -103,7 +106,7 @@ impl<H: HttpClient> Client<H> {
         Self {
             http_client,
             api_key,
-            api_base_url: "https://api.anthropic.com".to_string(),
+            api_base_url: BASE_URL.to_string(),
         }
     }
 
@@ -114,7 +117,10 @@ impl<H: HttpClient> Client<H> {
         let api_url = format!("{}/v1/messages", self.api_base_url);
         let headers = vec![
             ("x-api-key".to_string(), self.api_key.to_string()),
-            ("anthropic-version".to_string(), "2023-06-01".to_string()),
+            (
+                "anthropic-version".to_string(),
+                ANTHROPIC_VERSION.to_string(),
+            ),
             ("content-type".to_string(), "application/json".to_string()),
         ];
         let response = self
