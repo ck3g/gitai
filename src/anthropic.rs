@@ -1,7 +1,35 @@
 use serde::{Deserialize, Serialize};
 
-pub struct Client {
-    http_client: reqwest::Client,
+#[async_trait::async_trait]
+pub trait HttpClient {
+    async fn post_json<T: Serialize + Send + Sync>(
+        &self,
+        url: &str,
+        headers: Vec<(String, String)>,
+        body: &T,
+    ) -> Result<String, Box<dyn std::error::Error>>;
+}
+
+pub struct ReqwestHttpClient {
+    client: reqwest::Client,
+}
+
+impl ReqwestHttpClient {
+    pub fn new() -> Self {
+        Self {
+            client: reqwest::Client::new(),
+        }
+    }
+}
+
+impl Default for ReqwestHttpClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub struct Client<H: HttpClient> {
+    http_client: H,
     api_key: String,
     api_base_url: String,
 }
@@ -64,10 +92,10 @@ impl MessageParam {
     }
 }
 
-impl Client {
-    pub fn new(api_key: String) -> Self {
+impl<H: HttpClient> Client<H> {
+    pub fn new(http_client: H, api_key: String) -> Self {
         Self {
-            http_client: reqwest::Client::new(),
+            http_client,
             api_key,
             api_base_url: "https://api.anthropic.com".to_string(),
         }
@@ -78,13 +106,42 @@ impl Client {
         message_new_params: MessageNewParams,
     ) -> Result<Message, Box<dyn std::error::Error>> {
         let api_url = format!("{}/v1/messages", self.api_base_url);
+        let headers = vec![
+            ("x-api-key".to_string(), self.api_key.to_string()),
+            ("anthropic-version".to_string(), "2023-06-01".to_string()),
+            ("content-type".to_string(), "application/json".to_string()),
+        ];
         let response = self
             .http_client
-            .post(api_url)
-            .header("x-api-key", &self.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .header("content-type", "application/json")
-            .json(&message_new_params)
+            .post_json(&api_url, headers, &message_new_params)
+            .await?;
+
+        let message: Message = serde_json::from_str(&response)?;
+        Ok(message)
+    }
+}
+
+#[async_trait::async_trait]
+impl HttpClient for ReqwestHttpClient {
+    async fn post_json<T: Serialize + Send + Sync>(
+        &self,
+        url: &str,
+        headers: Vec<(String, String)>,
+        body: &T,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let mut header_map = reqwest::header::HeaderMap::new();
+        for (key, value) in headers {
+            header_map.insert(
+                reqwest::header::HeaderName::from_bytes(key.as_bytes())?,
+                reqwest::header::HeaderValue::from_str(&value)?,
+            );
+        }
+
+        let response = self
+            .client
+            .post(url)
+            .headers(header_map)
+            .json(body)
             .send()
             .await?;
 
@@ -96,7 +153,7 @@ impl Client {
             )));
         }
 
-        let message: Message = response.json().await?;
-        Ok(message)
+        let response_text = response.text().await?;
+        Ok(response_text)
     }
 }
