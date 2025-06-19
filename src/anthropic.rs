@@ -169,3 +169,162 @@ impl HttpClient for ReqwestHttpClient {
         Ok(response_text)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use serde_json::json;
+
+    struct MockHttpClient {
+        expected_url: String,
+        expected_headers: Vec<(String, String)>,
+        response: String,
+        should_fail: bool,
+    }
+
+    #[async_trait]
+    impl HttpClient for MockHttpClient {
+        async fn post_json<T: Serialize + Send + Sync>(
+            &self,
+            url: &str,
+            headers: Vec<(String, String)>,
+            body: &T,
+        ) -> Result<String, Box<dyn std::error::Error>> {
+            assert_eq!(url, self.expected_url);
+
+            for (key, value) in &self.expected_headers {
+                assert!(
+                    headers.iter().any(|(k, v)| k == key && v == value),
+                    "Missing header: {:?}={:?}",
+                    key,
+                    value
+                )
+            }
+
+            let body_json = serde_json::to_value(body)?;
+            assert!(body_json.get("model").is_some());
+            assert!(body_json.get("messages").is_some());
+
+            if self.should_fail {
+                Err("Mock error".into())
+            } else {
+                Ok(self.response.clone())
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_new_message_success() {
+        let mock_response = json!({
+            "content": [{
+                "type": "text",
+                "text": "feat: Add new authentication system"
+            }]
+        })
+        .to_string();
+
+        let mock_client = MockHttpClient {
+            expected_url: "https://api.anthropic.com/v1/messages".to_string(),
+            expected_headers: vec![
+                ("x-api-key".to_string(), "test_key".to_string()),
+                ("anthropic-version".to_string(), "2023-06-01".to_string()),
+            ],
+            response: mock_response,
+            should_fail: false,
+        };
+
+        let client = Client::new(mock_client, "test_key".to_string());
+
+        let params = MessageNewParams::new(
+            "claude-3-5-sonnet-20240620".to_string(),
+            1024,
+            vec![MessageParam::new("Test prompt".to_string())],
+        );
+
+        let result = client.new_message(params).await;
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        assert_eq!(message.content.len(), 1);
+        assert_eq!(
+            message.content[0].text,
+            "feat: Add new authentication system"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_new_message_empty_response() {
+        let mock_response = json!({
+            "content": []
+        })
+        .to_string();
+
+        let mock_client = MockHttpClient {
+            expected_url: "https://api.anthropic.com/v1/messages".to_string(),
+            expected_headers: vec![],
+            response: mock_response,
+            should_fail: false,
+        };
+
+        let client = Client::new(mock_client, "test_key".to_string());
+        let params = MessageNewParams::new(
+            "claude-3-5-sonnet-20240620".to_string(),
+            1024,
+            vec![MessageParam::new("Test prompt".to_string())],
+        );
+
+        let result = client.new_message(params).await;
+        assert!(result.is_ok());
+
+        let message = result.unwrap();
+        assert_eq!(message.content.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_new_message_http_error() {
+        let mock_client = MockHttpClient {
+            expected_url: "https://api.anthropic.com/v1/messages".to_string(),
+            expected_headers: vec![],
+            response: String::new(),
+            should_fail: true,
+        };
+
+        let client = Client::new(mock_client, "test_key".to_string());
+        let params = MessageNewParams::new(
+            "claude-3-5-sonnet-20240620".to_string(),
+            1024,
+            vec![MessageParam::new("Test prompt".to_string())],
+        );
+
+        let result = client.new_message(params).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_new_message_invalid_json_response() {
+        let mock_client = MockHttpClient {
+            expected_url: "https://api.anthropic.com/v1/messages".to_string(),
+            expected_headers: vec![],
+            response: "invalid json".to_string(),
+            should_fail: false,
+        };
+
+        let client = Client::new(mock_client, "test_key".to_string());
+        let params = MessageNewParams::new(
+            "claude-3-5-sonnet-20240620".to_string(),
+            1024,
+            vec![MessageParam::new("Test prompt".to_string())],
+        );
+
+        let result = client.new_message(params).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("expected value at line")
+        );
+    }
+}
