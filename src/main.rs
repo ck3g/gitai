@@ -23,7 +23,11 @@ enum Commands {
     /// Initialize gitai with your API key
     Init,
     /// Generate a commit message based on staged changes
-    Commit,
+    Commit {
+        /// Use conventional commit messages
+        #[arg(short = 'c', long = "conventional")]
+        conventional: bool,
+    },
 }
 
 fn main() {
@@ -31,7 +35,7 @@ fn main() {
 
     match cli.command {
         Commands::Init => handle_init(),
-        Commands::Commit => handle_commit(),
+        Commands::Commit { conventional } => handle_commit(conventional),
     }
 }
 
@@ -53,7 +57,7 @@ fn handle_init() {
     }
 }
 
-fn handle_commit() {
+fn handle_commit(use_conventional: bool) {
     match is_git_repository() {
         Ok(true) => {}
         Ok(false) => {
@@ -82,7 +86,7 @@ fn handle_commit() {
         }
     };
 
-    let prompt = build_prompt(&diff);
+    let prompt = build_prompt(&diff, use_conventional);
     println!("Generating commit message...");
 
     let rt = Runtime::new().expect("Failed to create Tokio runtime");
