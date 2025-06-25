@@ -86,4 +86,4 @@ This is a learning project for Rust. Contributions and feedback are welcome!
 
 ## License
 
-(To be determined)
+MIT License - see [LICENSE](LICENSE) file for details.
