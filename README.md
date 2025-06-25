@@ -10,7 +10,11 @@ A CLI tool that uses AI to generate meaningful git commit messages based on your
 
 ## Installation
 
-(Coming soon...)
+### macOS (Apple Silicon)
+
+```bash
+curl -fsSL https://gitlab.com/ck3g/gitai/-/raw/main/scripts/install.sh | sh
+```
 
 ## Getting Started
 
