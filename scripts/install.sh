@@ -5,7 +5,7 @@
 set -e  # Exit on error
 
 # Configuration
-# GITLAB_PROJECT_ID="70251003"  # Project ID for ck3g/gitai
+GITLAB_PROJECT_ID="70251003"  # Project ID for ck3g/gitai
 # Or use namespace/project format:
 GITLAB_PROJECT_PATH="ck3g/gitai"  # Your GitLab username/project
 GITLAB_INSTANCE="https://gitlab.com"  # Change if using self-hosted GitLab
@@ -96,10 +96,8 @@ get_platform() {
 
 # Get the latest release version from GitLab
 get_latest_version() {
-    # GitLab allows URL-encoded path
-    # URL encode the path (replace / with %2F)
-    local encoded_path=$(echo "$GITLAB_PROJECT_PATH" | sed 's/\//%2F/g')
-    local api_url="$GITLAB_API/projects/$encoded_path/releases"
+    # Use project ID for more reliable API calls
+    local api_url="$GITLAB_API/projects/$GITLAB_PROJECT_ID/releases"
     
     info "Checking latest version from GitLab..."
     
@@ -112,19 +110,27 @@ get_latest_version() {
         error "Neither curl nor wget found. Please install one of them."
     fi
     
-    # Check if we got an error response
-    if echo "$response" | grep -q '"message"'; then
-        error_msg=$(echo "$response" | grep '"message"' | cut -d'"' -f4)
+    # Check if we got an actual error (GitLab returns error at root level)
+    if echo "$response" | grep -q '^{"error"'; then
+        error_msg=$(echo "$response" | grep -o '"error":"[^"]*"' | cut -d'"' -f4)
+        error "GitLab API error: $error_msg"
+    fi
+    
+    # Check for message field at root level (another error format)
+    if echo "$response" | grep -q '^{"message"'; then
+        error_msg=$(echo "$response" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
         error "GitLab API error: $error_msg"
     fi
     
     # Extract the first (latest) release tag
     # GitLab returns releases in descending order by default
-    version=$(echo "$response" | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+    version=$(echo "$response" | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)
     
     if [ -z "$version" ]; then
         info "No releases found. For testing, using version 0.1.0"
         version="0.1.0"
+    else
+        info "Found version: $version"
     fi
     
     # Remove 'v' prefix if present
@@ -161,9 +167,9 @@ main() {
     # 2. Generic package registry
     # 3. Release assets API
     
-    # For now, we'll use the direct download pattern
-    # This assumes you upload assets with your releases
-    DOWNLOAD_URL="$GITLAB_INSTANCE/$GITLAB_PROJECT_PATH/-/releases/v$VERSION/downloads/$ARCHIVE_NAME"
+    # For now, we'll use the GitLab Package Registry URL pattern
+    # Files are uploaded to: /packages/generic/gitai/VERSION/FILENAME
+    DOWNLOAD_URL="$GITLAB_API/projects/$GITLAB_PROJECT_ID/packages/generic/gitai/$VERSION/$ARCHIVE_NAME"
     
     info "Download URL: $DOWNLOAD_URL"
     
