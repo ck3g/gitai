@@ -2,6 +2,8 @@
 
 A CLI tool that uses AI to generate meaningful git commit messages based on your staged changes.
 
+⚠️ This is an unofficial project. It is not endorsed or supported by GitLab Inc.
+
 ## Features
 
 - Analyzes your git diff to understand changes
